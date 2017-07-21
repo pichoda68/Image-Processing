@@ -1,0 +1,104 @@
+input {
+    file {
+        path => "/home/mayank/mlarb*.log"
+        start_position => "beginning"
+        sincedb_path => "/dev/null"
+    }
+}
+
+
+filter {
+
+    grok {
+	match => ["path","/%{DATA}/%{DATA}/%{DATA:StrategyName}_new_server-%{DATA:DataDate}.log"]
+    }
+
+    grok {
+        match => { "message" => "%{TIME:Time},%{NUMBER:Millis} Level\[%{WORD:LogLevel}\] %{DATA} ## New Order=> %{DATA:KeyValues} ## %{GREEDYDATA:LogSouce}" }
+        add_tag => ["valid"]
+        add_field => { "Order_Type" => "new_order" }
+    }
+if "valid" not in [tags] {            
+    	drop { }
+    }
+
+    kv {
+  	source => "KeyValues"
+  	field_split => ";"
+	value_split => "="
+	trim_key => " "
+    }  
+}
+
+output {
+    elasticsearch {
+        action => "index"
+        hosts => [ "10.250.33.115:9200" , "10.250.33.249:9200" ]
+        index => "%{Order_Type}"
+        document_type => "%{StrategyName}"
+    }
+}
+
+
+
+DEV edemumhfttest03:/opt/elasticsearch-5.3.0/bin=>curl '10.250.33.249:9200/_cat/indices?v'
+health status index            uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   new_order_update UA7QbabFSruLOQQr0cNQRw   5   1      51085            0    107.2mb         54.2mb
+green  open   execution_update sJlZ1UIQTni5iVCke096nA   5   1       1350            0      6.7mb          3.2mb
+green  open   new_order        8Wxnjoo3RQeBBpJQfm-9Ig   5   1      25245            0       55mb         27.5mb
+green  open   replace_update   9PXzl-6KS4CizRON-QPbAw   5   1         25            0    946.7kb        473.3kb
+
+
+
+DEV edemumhfttest03:/opt/elasticsearch-5.3.0/bin=>curl '10.250.33.249:9200/_cat/shards?v'
+index            shard prirep state   docs   store ip            node
+new_order_update 2     r      STARTED 4115   2.1mb 10.250.33.115 DataNode-1
+new_order_update 2     p      STARTED 4115   2.1mb 10.250.33.249 DataNode-2
+new_order_update 4     r      STARTED 4104   2.1mb 10.250.33.115 DataNode-1
+new_order_update 4     p      STARTED 4104   2.1mb 10.250.33.249 DataNode-2
+new_order_update 1     p      STARTED 4050   2.1mb 10.250.33.115 DataNode-1
+execution_update 1     p      STARTED  369 372.4kb 10.250.33.115 DataNode-1
+execution_update 1     r      STARTED  369 456.8kb 10.250.33.249 DataNode-2
+execution_update 3     p      STARTED  412 502.5kb 10.250.33.115 DataNode-1
+execution_update 3     r      STARTED  412 384.9kb 10.250.33.249 DataNode-2
+execution_update 0     p      STARTED  349 376.6kb 10.250.33.115 DataNode-1
+execution_update 0     r      STARTED  349 465.7kb 10.250.33.249 DataNode-2
+.kibana          0     p      STARTED    6  43.3kb 10.250.33.115 DataNode-1
+.kibana          0     r      STARTED    6  43.3kb 10.250.33.249 DataNode-2
+replace_update   1     p      STARTED    9 137.3kb 10.250.33.115 DataNode-1
+replace_update   1     r      STARTED    9 137.3kb 10.250.33.249 DataNode-2
+replace_update   3     p      STARTED    6 121.4kb 10.250.33.115 DataNode-1
+replace_update   3     r      STARTED    6 121.4kb 10.250.33.249 DataNode-2
+replace_update   0     p      STARTED    8 152.8kb 10.250.33.115 DataNode-1
+replace_update   0     r      STARTED    8 152.8kb 10.250.33.249 DataNode-2
+new_order        2     p      STARTED 1995 866.9kb 10.250.33.115 DataNode-1
+new_order        2     r      STARTED 1995   1.1mb 10.250.33.249 DataNode-2
+new_order        4     p      STARTED 2079   1.1mb 10.250.33.115 DataNode-1
+new_order        4     r      STARTED 2079   1.1mb 10.250.33.249 DataNode-2
+new_order        1     r      STARTED 1954 891.8kb 10.250.33.115 DataNode-1
+
+
+
+
+^C[hdfs@edemumhadoop02 logstash-5.3.0]$ ./bin/logstash -f pipeline2.conf
+Sending Logstash's logs to /opt/logstash-5.3.0/logs which is now configured via log4j2.properties
+[2017-07-21T17:49:07,776][INFO ][logstash.outputs.elasticsearch] Elasticsearch pool URLs updated {:changes=>{:removed=>[], :added=>[http://10.250.33.115:9200/, http://10.250.33.249:9200/]}}
+[2017-07-21T17:49:07,779][INFO ][logstash.outputs.elasticsearch] Running health check to see if an Elasticsearch connection is working {:healthcheck_url=>http://10.250.33.115:9200/, :path=>"/"}
+[2017-07-21T17:49:07,862][WARN ][logstash.outputs.elasticsearch] Restored connection to ES instance {:url=>#<URI::HTTP:0x3ce3d3c URL:http://10.250.33.115:9200/>}
+[2017-07-21T17:49:07,863][INFO ][logstash.outputs.elasticsearch] Running health check to see if an Elasticsearch connection is working {:healthcheck_url=>http://10.250.33.249:9200/, :path=>"/"}
+[2017-07-21T17:49:07,866][WARN ][logstash.outputs.elasticsearch] Restored connection to ES instance {:url=>#<URI::HTTP:0x77cf55c5 URL:http://10.250.33.249:9200/>}
+[2017-07-21T17:49:07,866][INFO ][logstash.outputs.elasticsearch] Using mapping template from {:path=>nil}
+[2017-07-21T17:49:07,900][INFO ][logstash.outputs.elasticsearch] Attempting to install template {:manage_template=>{"template"=>"logstash-*", "version"=>50001, "settings"=>{"index.refresh_interval"=>"5s"}, "mappings"=>{"_default_"=>{"_all"=>{"enabled"=>true, "norms"=>false}, "dynamic_templates"=>[{"message_field"=>{"path_match"=>"message", "match_mapping_type"=>"string", "mapping"=>{"type"=>"text", "norms"=>false}}}, {"string_fields"=>{"match"=>"*", "match_mapping_type"=>"string", "mapping"=>{"type"=>"text", "norms"=>false, "fields"=>{"keyword"=>{"type"=>"keyword"}}}}}], "properties"=>{"@timestamp"=>{"type"=>"date", "include_in_all"=>false}, "@version"=>{"type"=>"keyword", "include_in_all"=>false}, "geoip"=>{"dynamic"=>true, "properties"=>{"ip"=>{"type"=>"ip"}, "location"=>{"type"=>"geo_point"}, "latitude"=>{"type"=>"half_float"}, "longitude"=>{"type"=>"half_float"}}}}}}}}
+[2017-07-21T17:49:07,905][INFO ][logstash.outputs.elasticsearch] New Elasticsearch output {:class=>"LogStash::Outputs::ElasticSearch", :hosts=>[#<URI::Generic:0x5ec0b697 URL://10.250.33.115:9200>, #<URI::Generic:0x2a92834d URL://10.250.33.249:9200>]}
+[2017-07-21T17:49:07,985][INFO ][logstash.pipeline        ] Starting pipeline {"id"=>"main", "pipeline.workers"=>32, "pipeline.batch.size"=>125, "pipeline.batch.delay"=>5, "pipeline.max_inflight"=>4000}
+[2017-07-21T17:49:08,107][INFO ][logstash.pipeline        ] Pipeline main started
+[2017-07-21T17:49:08,165][INFO ][logstash.agent           ] Successfully started Logstash API endpoint {:port=>9600}
+[2017-07-21T17:49:11,042][INFO ][o.e.c.m.MetaDataCreateIndexService] [MasterNode-1] [new_order] creating index, cause [auto(bulk api)], templates [], shards [5]/[1], mappings []
+[2017-07-21T17:49:11,244][INFO ][o.e.c.m.MetaDataCreateIndexService] [MasterNode-1] [new_order_update] creating index, cause [auto(bulk api)], templates [], shards [5]/[1], mappings []
+[2017-07-21T17:49:11,733][INFO ][o.e.c.m.MetaDataMappingService] [MasterNode-1] [new_order_update/ZnkKjJNdTimflUC5G-UWBw] create_mapping [prodlog/mlarb4leg]
+[2017-07-21T17:49:11,737][INFO ][o.e.c.m.MetaDataMappingService] [MasterNode-1] [new_order/YFBRyL1aSYCBwLfrmRnUrQ] create_mapping [prodlog/mlarb4leg]
+[2017-07-21T17:49:14,373][INFO ][o.e.c.r.a.AllocationService] [MasterNode-1] Cluster health status changed from [YELLOW] to [GREEN] (reason: [shards started [[new_order][4]] ...]).
+[2017-07-21T17:49:20,672][INFO ][o.e.c.m.MetaDataMappingService] [MasterNode-1] [new_order/YFBRyL1aSYCBwLfrmRnUrQ] create_mapping [%{StrategyName}]
+[2017-07-21T17:49:20,678][INFO ][o.e.c.m.MetaDataMappingService] [MasterNode-1] [new_order_update/ZnkKjJNdTimflUC5G-UWBw] create_mapping [%{StrategyName}]
+
+
