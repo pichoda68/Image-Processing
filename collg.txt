@@ -1,3 +1,17 @@
+Dataset<Feed> dataset = sql.sql(s).as(feedEncoder);
+StructField[] sf = new StructField[sizeRow];
+sf[0] = DataTypes.createStructField("day", DataTypes.DateType, false);
+
+ExpressionEncoder<Row> rowEncoder = RowEncoder.apply(new StructType(sf));
+List<Row> = dataset.mapPartitions((MapPartitionsFunction<Feed, Row>) iterator -> {
+	Esper Engine Instance created
+	The class called where order are placed and trades take place
+	Esper Instance assigned to every partition of data thus making Esper Process parallelized
+	return resultsStore.getResults()
+}, rowEncoder).collectAsList();
+
+
+
 input {
     file {
         path => "/home/mayank/mlarb*.log"
@@ -76,6 +90,7 @@ new_order        2     r      STARTED 1995   1.1mb 10.250.33.249 DataNode-2
 new_order        4     p      STARTED 2079   1.1mb 10.250.33.115 DataNode-1
 new_order        4     r      STARTED 2079   1.1mb 10.250.33.249 DataNode-2
 new_order        1     r      STARTED 1954 891.8kb 10.250.33.115 DataNode-1
+
 
 
 
